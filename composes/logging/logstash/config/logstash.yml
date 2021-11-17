@@ -1,0 +1,11 @@
+---
+http.host: "0.0.0.0"
+xpack.monitoring.elasticsearch.hosts: [ "http://es01:9200" ]
+xpack.monitoring.elasticsearch.username: elastic
+xpack.monitoring.elasticsearch.password: changeme
+
+config.reload.automatic: true
+config.reload.interval: 30s
+
+# config.debug: false
+# log.level: info

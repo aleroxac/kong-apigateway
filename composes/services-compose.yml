@@ -1,0 +1,74 @@
+version: "3.8"
+
+networks:
+  kong-net:
+    name: kong-net
+    driver: bridge
+
+services:
+  servicea:
+    build: 
+      context: ./services
+      dockerfile: Dockerfile
+    container_name: servicea
+    hostname: servicea
+    restart: on-failure
+    environment:
+      PORT: ":8081"
+      CONTENT: "<h1>Service A</h1>"
+    ports:
+      - 8081:8081
+    networks:
+      - kong-net
+
+  serviceb:
+    build: 
+      context: ./services
+      dockerfile: Dockerfile
+    container_name: serviceb
+    hostname: serviceb
+    restart: on-failure
+    environment:
+      PORT: ":8082"
+      CONTENT: "<h1>Service B</h1>"
+    ports:
+      - 8082:8082
+    networks:
+      - kong-net
+
+  servicec:
+    build: 
+      context: ./services
+      dockerfile: Dockerfile
+    container_name: servicec
+    hostname: servicec
+    restart: on-failure
+    environment:
+      PORT: ":8083"
+      CONTENT: "<h1>Service C</h1>"
+    ports:
+      - 8083:8083
+    networks:
+      - kong-net
+
+  nginx1:
+    image: nginx1
+    container_name: nginx1
+    hostname: nginx1
+    volumes:
+      - ./nginx/index1.html:/usr/share/nginx/html/index.html
+    ports:
+      - 9001:80
+    networks:
+      - kong-net
+
+  nginx2:
+    image: nginx2
+    container_name: nginx2
+    hostname: nginx2
+    volumes:
+      - ./nginx/index2.html:/usr/share/nginx/html/index.html
+    ports:
+      - 9002:80
+    networks:
+      - kong-net

@@ -1,0 +1,9 @@
+  - pipeline.id: beats
+    config.string: |
+      input { udp { port => 5000 } }
+      output {
+        pipeline { send_to => kong_address }
+      }
+
+  - pipeline.id: kong
+    path.config: "/usr/share/logstash/pipeline/kong.conf"

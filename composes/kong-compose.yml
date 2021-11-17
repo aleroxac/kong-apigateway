@@ -1,0 +1,121 @@
+version: '3.8'
+
+networks:
+  kong-net:
+    external: true
+
+services:
+  kong-db:
+    image: postgres:9.6
+    container_name: kong-db
+    hostname: kong-db
+    restart: on-failure
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "kong"]
+      interval: 30s
+      timeout: 30s
+      retries: 3
+    stdin_open: true
+    tty: true
+    ports:
+      - 5432:5432
+    networks:
+      - kong-net
+
+  kong-migrations:
+    image: "kong:2.5.0-alpine"
+    container_name: kong-migrations
+    hostname: kong-migrations
+    restart: on-failure
+    command: kong migrations bootstrap && kong migrations up && kong migrations finish
+    environment:
+      KONG_DATABASE: ${KONG_DATABASE}
+      KONG_PG_HOST: ${KONG_PG_HOST}
+      KONG_PG_DATABASE: ${KONG_PG_DATABASE}
+      KONG_PG_USER: ${KONG_PG_USER}
+      KONG_PG_PASSWORD: ${KONG_PG_PASSWORD}
+      KONG_CASSANDRA_CONTACT_POINTS: ${KONG_CASSANDRA_CONTACT_POINTS}
+    depends_on:
+      kong-db:
+        condition: service_healthy
+    networks:
+      - kong-net
+
+  kong:
+    image: "kong:2.5.0-alpine"
+    container_name: kong
+    hostname: kong
+    user: "kong"
+    restart: on-failure
+    environment:
+      KONG_ADMIN_ACCESS_LOG: ${KONG_ADMIN_ACCESS_LOG}
+      KONG_PROXY_ACCESS_LOG: ${KONG_PROXY_ACCESS_LOG}
+      KONG_ADMIN_ERROR_LOG: ${KONG_ADMIN_ERROR_LOG}
+      KONG_PROXY_ERROR_LOG: ${KONG_PROXY_ERROR_LOG}
+      KONG_ADMIN_LISTEN: ${KONG_ADMIN_LISTEN}
+      KONG_PG_HOST: ${KONG_PG_HOST}
+      KONG_DATABASE: ${KONG_DATABASE}
+      KONG_PG_DATABASE: ${KONG_PG_DATABASE}
+      KONG_PG_USER: ${KONG_PG_USER}
+      KONG_PG_PASSWORD: ${KONG_PG_PASSWORD}
+      KONG_CASSANDRA_CONTACT_POINTS: ${KONG_CASSANDRA_CONTACT_POINTS}
+    healthcheck:
+      test: ["CMD", "kong", "health"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+    ports:
+      - "8000:8000/tcp"
+      - "8443:8443/tcp"
+      - "127.0.0.1:8001:8001/tcp"
+      - "127.0.0.1:8444:8444/tcp"
+    depends_on:
+      kong-migrations:
+        condition: service_completed_successfully
+      kong-db:
+        condition: service_healthy
+    networks:
+      - kong-net
+
+  konga-prepare:
+    image: pantsel/konga:0.14.9
+    container_name: konga-prepare
+    hostname: konga-prepare
+    restart: on-failure
+    command: "-c prepare -a postgres -u postgresql://kong:kong@kong-db:5432/konga_db"
+    depends_on:
+      kong-db:
+        condition: service_healthy
+    networks:
+      - kong-net
+
+  konga:
+    image: pantsel/konga:0.14.9
+    container_name: konga
+    hostname: konga
+    restart: on-failure
+    environment:
+      DB_ADAPTER: ${DB_ADAPTER}
+      DB_HOST: ${DB_HOST}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_DATABASE: ${DB_DATABASE}
+      NODE_ENV: ${NODE_ENV}
+    healthcheck:
+      test: ["CMD", "kong", "health"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+    ports:
+      - "1337:1337"
+    depends_on:
+      konga-prepare:
+        condition: service_completed_successfully
+      kong-db:
+        condition: service_healthy
+    networks:
+      - kong-net

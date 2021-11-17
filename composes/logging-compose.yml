@@ -1,0 +1,77 @@
+version: "3.8"
+
+networks:
+  kong-net:
+    name: kong-net
+    driver: bridge
+
+services:
+  es01:
+    image: docker.elastic.co/elasticsearch/elasticsearch:${ES_VERSION}
+    container_name: es01
+    hostname: es01
+    restart: always
+    environment:
+      - "ELASTIC_PASSWORD=${ES_PASSWORD}"
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - node.name=es01
+    volumes:
+      - ./elasticsearch/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    networks:
+      - kong-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl --silent --fail localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+
+  ls01:
+    image: docker.elastic.co/logstash/logstash:${ES_VERSION}
+    container_name: ls01
+    hostname: ls01
+    restart: always
+    volumes:
+      - ./logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml
+      - ./logstash/config/pipelines.yml:/usr/share/logstash/config/pipelines.yml
+      - ./logstash/pipes:/usr/share/logstash/pipeline
+    command: "logstash"
+    ports:
+      - "5044:5044"
+      - "9600:9600"
+      - "5000:5000/udp"
+    networks:
+      - kong-net
+    depends_on: 
+      es01:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl --silent --fail http://localhost:9600 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+
+  kb01:
+    image: docker.elastic.co/kibana/kibana:${ES_VERSION}
+    container_name: kb01
+    hostname: kb01
+    restart: always
+    volumes:
+      - ./kibana/kibana.yml:/usr/share/kibana/config/kibana.yml
+    ports:
+      - "5601:5601"
+    networks:
+      - kong-net
+    depends_on: 
+      es01:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl --silent --fail http://localhost:5601/api/status --user ${ES_USERNAME}:${ES_PASSWORD}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s

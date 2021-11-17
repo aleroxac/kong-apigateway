@@ -1,0 +1,30 @@
+version: "3.8"
+
+networks:
+  kong-net:
+    name: kong-net
+    driver: bridge
+
+services:
+  prometheus:
+    image: prom/prometheus:v2.30.0
+    container_name: prometheus
+    hostname: prometheus
+    volumes:
+      - ./prometheus/config.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - 9090:9090
+    networks:
+      - kong-net
+
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    hostname: grafana
+    volumes:
+      - ./metrics/dashboard-kong.json:/var/lib/grafana/dashboards/dashboard-kong.json
+      - ./metrics/grafana.ini:/etc/grafana/grafana.ini
+    ports:
+      - 3000:3000
+    networks:
+      - kong-net
